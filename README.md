@@ -1,75 +1,41 @@
-# React + TypeScript + Vite
+# Mahjong / 3D
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A React + TypeScript + Three.js asset studio for the first building blocks of a Mahjong game.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
+Production checks: `npm run build` and `npm run lint`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+If the existing dependency folder or lockfile is owned by root, restore project-local ownership before installation:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
+```sh
+sudo chown -R "$(id -un)":staff node_modules package-lock.json
 ```
+
+## Assets
+
+`src/assets/mahjong.ts` exposes independent Three.js factories:
+
+- `createMahjongTable(feltColor, woodColor)` creates the named table group, with rounded walnut rails, textured felt, pedestal, four feet, wall slots, and a central dice console.
+- `createTileLibrary(backColor)` returns a tile factory accepting a type index from 0–33. Tiles share geometry and materials, with rounded resin bodies, colored backs, and canvas-generated faces.
+- `createTileSet(makeTile, display)` produces 136 tiles: four copies of 34 types. The set includes characters, bamboo, circles, four winds, and three dragons; flowers and seasons are excluded.
+- `tileTypes` contains face metadata. Each tile group also carries that metadata in `userData`.
+
+Coordinates use Y-up. The table is 3.15 units square, its playing surface is about 2.07 units high, and individual tiles measure 0.105 × 0.065 × 0.145 units. Dimensions are adjustable modeling proportions, not a particular manufacturer's specification.
+
+The preview supports orbit, zoom, top view, automatic rotation, three felt colors, and three wood finishes. The lift control illustrates a wall-lowering and wall-raising cycle; it is not an internal mechanical simulation or game logic.
+
+Use **Export asset** to download a binary glTF (`.glb`) with embedded procedural textures. Table view exports the table and its tile walls; tile view exports only the full tile collection. Export follows the Three.js [GLTFExporter API](https://threejs.org/docs/pages/GLTFExporter.html).
+
+## Structure
+
+- `src/assets/mahjong.ts`: reusable asset geometry, materials, face artwork, and arrangements.
+- `src/Scene.tsx`: lighting, renderer, camera, orbit controls, lift preview, export, and resource disposal.
+- `src/App.tsx`: responsive asset browser and material controls.
+
+The application requires WebGL. Fonts use Google Fonts with local sans-serif fallbacks. All model textures are generated locally; no external 3D models are required.
