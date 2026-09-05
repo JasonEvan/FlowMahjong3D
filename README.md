@@ -11,6 +11,14 @@ npm run dev
 
 Production checks: `npm run build` and `npm run lint`.
 
+## Play
+
+Open `/game` (or choose **Play Mahjong** in the studio) to play against three bots using the supplied `mahjong-table.glb` and `mahjong-tiles.glb` assets. Select a tile in the 3D scene or the accessible hand bar, then press **Discard tile**. Draws and valid wins are automatic. Drag to orbit or switch to top view.
+
+This is a simplified 136-tile ruleset: four sets and a pair, or seven distinct pairs. Players can win on self-draw or an opponent's discard; the nearest player in turn order takes precedence on simultaneous wins. No meld calls, scoring, riichi, furiten, flowers, dead wall, or thirteen-orphans hand are implemented. The game ends on a win or wall exhaustion. **New round** reshuffles the tiles. Reloading starts a new game; games are not saved.
+
+Bots use only their own hand to favor pairs, triples, and adjacent suited tiles. `src/game/engine.ts` contains the pure rules engine; `npm test` checks winning hands, turn legality, discard claims, self-draw, and tile conservation through 100 seeded full rounds. Tests require Node 22.6 or newer with experimental type stripping.
+
 If the existing dependency folder or lockfile is owned by root, restore project-local ownership before installation:
 
 ```sh

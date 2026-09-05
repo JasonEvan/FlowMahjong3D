@@ -30,7 +30,7 @@ export default function App() {
   return <div className="app">
     <header className="header">
       <a className="brand" href="./"><span className="brand-mark">東</span><span>mahjong<span className="brand-light"> / </span>3D</span></a>
-      <nav aria-label="Main navigation"><span className="nav-active">Asset studio</span><span className="nav-muted">Collection 001</span></nav>
+      <nav aria-label="Main navigation"><span className="nav-active">Asset studio</span><a href="/game">Play Mahjong →</a></nav>
       <div className="header-right"><span className="status-dot"/> A new perspective on tradition <span className="version">v.01</span></div>
     </header>
     <main>
