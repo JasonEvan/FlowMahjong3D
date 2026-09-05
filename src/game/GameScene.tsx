@@ -76,6 +76,7 @@ export default function GameScene(props: Props) {
         pieces.clear(); renderedGame = state.game; renderedSelection = state.selected
         const game = state.game
         game.hands.forEach((hand, seat) => hand.forEach((tile, i) => addTile(tile.type, (i - (hand.length - 1) / 2) * .117, seat === 0 || game.result !== 'playing' ? 2.15 : 2.12, 1.16, seat * Math.PI / 2, seat !== 0 && game.result === 'playing', seat === 0 ? tile.id : undefined, seat === 0 && game.result === 'playing')))
+        game.melds.forEach((melds, seat) => melds.forEach((meld, group) => meld.tiles.forEach((tile, i) => addTile(tile.type, -.87 + group * .45 + i * .107, 2.075, 1.41, seat * Math.PI / 2, meld.from === null && (i === 0 || i === 3) && game.result === 'playing'))))
         game.discards.forEach((river, seat) => river.forEach((tile, i) => addTile(tile.type, (i % 6 - 2.5) * .11 - .04, 2.105 + Math.floor(i / 24) * .069, .405 + Math.floor((i % 24) / 6) * .145, seat * Math.PI / 2, false)))
         game.wall.forEach((_, i) => { const side = Math.floor(i / 22), index = i % 22; addTile(0, (Math.floor(index / 2) - 5) * .11 - .04, 2.12 + index % 2 * .069, .99, side * Math.PI / 2, true) })
       }

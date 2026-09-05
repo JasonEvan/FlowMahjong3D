@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isWinning, newGame, discard, botDiscard, rollForDealer, seatWind } from '../src/game/engine.ts'
+import { isWinning, newGame, discard, botDiscard, rollForDealer, seatWind, claimOptions, resolveClaims, concealedKongs, declareConcealedKong, botClaim } from '../src/game/engine.ts'
 
 test('all four players roll two dice and the highest total selects dealer', () => {
   const values = [0,0, .99,.99, .5,.5, .2,.2]
@@ -27,7 +27,7 @@ test('every possible dealer receives the opening draw and winds rotate correctly
     assert.ok(game.hands[dealer].some(t => t.id === game.drawn))
     assert.equal(game.wall.length, 83)
     assert.deepEqual([0,1,2,3].map(offset => seatWind((dealer + offset) % 4, dealer)), ['East','South','West','North'])
-    const next = discard(game, dealer, botDiscard(game.hands[dealer]))
+    const next = resolveClaims(discard(game, dealer, botDiscard(game.hands[dealer])), null)
     if (next.result === 'playing') assert.equal(next.turn, (dealer + 1) % 4)
   }
 })
@@ -59,7 +59,9 @@ test('discard win takes priority over an exhausted wall and transfers tile once'
   game.wall = []; game.turn = 0; game.hands[0] = [{ id: 135, type: 31 }]
   game.hands[1] = [0,1,2,3,4,5,9,10,11,27,27,27,31].map((type,id) => ({ id, type }))
   game.hands[2] = []; game.hands[3] = []
-  const won = discard(game, 0, 135)
+  const pending = discard(game, 0, 135)
+  assert.ok(pending.pending)
+  const won = resolveClaims(pending, null)
   assert.equal(won.winner, 1); assert.equal(won.result, 'win')
   assert.equal(won.discards[0].length, 0); assert.equal(won.hands[1].length, 14)
 })
@@ -67,7 +69,7 @@ test('self-draw ends round before bot discard', () => {
   const game = newGame(randomSeed(42))
   game.hands = [[{id:100,type:33}], [0,1,2,3,4,5,9,10,11,27,27,27,31].map((type,id) => ({type,id})), [], []]
   game.wall = [{id:101,type:31}]
-  const won = discard(game, 0, 100)
+  const won = resolveClaims(discard(game, 0, 100), null)
   assert.equal(won.winner, 1); assert.equal(won.result, 'win')
   assert.equal(discard(won, 1, 101), won)
 })
@@ -77,15 +79,15 @@ test('100 seeded bot rounds terminate and preserve all 136 tiles every turn', ()
     let game = newGame(randomSeed(seed), seed % 4), turns = 0
     while (game.result === 'playing') {
       const before = JSON.stringify(game)
-      const next = discard(game, game.turn, botDiscard(game.hands[game.turn]))
+      const next = game.pending ? resolveClaims(game, botClaim(game, 0)) : concealedKongs(game, game.turn).length ? declareConcealedKong(game, game.turn, concealedKongs(game, game.turn)[0]) : discard(game, game.turn, botDiscard(game.hands[game.turn]))
       assert.equal(JSON.stringify(game), before, 'engine must not mutate prior state')
       game = next; turns++
-      const tiles = [...game.wall, ...game.hands.flat(), ...game.discards.flat()]
+      const tiles = [...game.wall, ...game.hands.flat(), ...game.discards.flat(), ...game.melds.flatMap(ms => ms.flatMap(m => m.tiles))]
       assert.equal(tiles.length, 136); assert.equal(new Set(tiles.map(t => t.id)).size, 136)
-      assert.ok(turns <= 84)
-      if (game.result === 'playing') assert.deepEqual(game.hands.map(h => h.length), [0,1,2,3].map(s => s === game.turn ? 14 : 13))
+      assert.ok(turns <= 300)
+      if (game.result === 'playing') assert.deepEqual(game.hands.map((h,s) => h.length + 3 * game.melds[s].length), [0,1,2,3].map(s => !game.pending && s === game.turn ? 14 : 13))
     }
-    if (game.result === 'win') { wins++; assert.equal(isWinning(game.hands[game.winner].map(t => t.type)), true) }
+    if (game.result === 'win') { wins++; assert.equal(isWinning(game.hands[game.winner].map(t => t.type), game.melds[game.winner].length), true) }
     else assert.equal(game.wall.length, 0)
   }
   assert.ok(wins > 0, 'bots should complete winning hands')

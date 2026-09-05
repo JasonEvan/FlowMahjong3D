@@ -1,0 +1,131 @@
+.claim-panel {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  margin-top: 18px;
+  border: 1px solid #b7cf81;
+  border-radius: 8px;
+  background: #2b4633;
+}
+.claim-discard {
+  width: 51px;
+  height: 68px;
+  border-radius: 4px;
+  border-bottom: 4px solid #8fac88;
+  align-self: flex-start;
+}
+.claim-details {
+  flex: 1;
+  min-width: 0;
+}
+.claim-details > strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+.claim-details > p {
+  font-size: 11px;
+  color: #b7c6a8;
+  margin: 7px 0 12px;
+  line-height: 1.6;
+}
+.claim-actions {
+  display: flex;
+  gap: 9px;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+.game-page .claim-actions button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a352a;
+  border-color: #829c67;
+  padding: 9px 12px;
+}
+.claim-actions strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.claim-preview {
+  display: flex;
+  gap: 2px;
+}
+.claim-preview img {
+  width: 25px;
+  height: 34px;
+  border-radius: 2px;
+}
+.game-page .claim-actions .pass-claim {
+  background: transparent;
+  border-color: #a3b58c55;
+  margin-left: auto;
+  align-self: stretch;
+}
+.exposed-melds {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 18px 0 0;
+  padding: 12px 0;
+  border-bottom: 1px solid #ffffff12;
+}
+.exposed-melds > div > span {
+  display: block;
+  font-size: 9px;
+  color: #a5bb93;
+  margin-bottom: 7px;
+}
+.exposed-melds > div > div {
+  display: flex;
+  gap: 3px;
+}
+.exposed-melds img {
+  width: 29px;
+  border-radius: 3px;
+  border-bottom: 3px solid #789b7c;
+}
+.own-kongs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.game-page .own-kongs button {
+  border-color: #b0c880;
+}
+.winning-hand {
+  flex-wrap: wrap;
+}
+@media (max-width: 600px) {
+  .claim-panel {
+    padding: 12px;
+    gap: 10px;
+  }
+  .claim-discard {
+    width: 35px;
+    height: 48px;
+  }
+  .claim-details > strong {
+    font-size: 11px;
+  }
+  .claim-details > p {
+    font-size: 10px;
+  }
+  .game-page .claim-actions button {
+    padding: 8px;
+    gap: 7px;
+  }
+  .claim-preview img {
+    width: 21px;
+    height: 28px;
+  }
+  .game-page .claim-actions .pass-claim {
+    margin-left: 0;
+  }
+  .exposed-melds {
+    gap: 11px;
+  }
+  .exposed-melds img {
+    width: 24px;
+  }
+}
