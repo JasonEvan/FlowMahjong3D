@@ -1,10 +1,23 @@
 export type Tile = { id: number; type: number }
 export type Game = {
+  dealer: number;
   wall: Tile[]; hands: Tile[][]; discards: Tile[][]; turn: number; moves: number;
   winner: number | null; result: 'playing' | 'win' | 'draw'; message: string; drawn: number | null;
 }
 export const players = ['You', 'Mei', 'Jun', 'Lin']
 export const winds = ['East', 'South', 'West', 'North']
+export const seatWind = (seat: number, dealer: number) => winds[(seat - dealer + 4) % 4]
+export type DealerRoll = { seat: number; dice: [number, number]; total: number }
+export function rollForDealer(candidates: number[], random = Math.random) {
+  if (!candidates.length || new Set(candidates).size !== candidates.length || candidates.some(s => !Number.isInteger(s) || s < 0 || s > 3)) throw new Error('Invalid dealer candidates')
+  const rolls: DealerRoll[] = candidates.map(seat => {
+    const dice: [number, number] = [Math.floor(random() * 6) + 1, Math.floor(random() * 6) + 1]
+    return { seat, dice, total: dice[0] + dice[1] }
+  })
+  const high = Math.max(...rolls.map(r => r.total))
+  const tied = rolls.filter(r => r.total === high).map(r => r.seat)
+  return { rolls, candidates: tied, dealer: tied.length === 1 ? tied[0] : null }
+}
 export function tileLabel(type: number) {
   return type < 27 ? `${type % 9 + 1} ${['characters', 'bamboo', 'circles'][Math.floor(type / 9)]}` : ['East wind', 'South wind', 'West wind', 'North wind', 'Red dragon', 'Green dragon', 'White dragon'][type - 27]
 }
@@ -27,13 +40,14 @@ export function isWinning(types: number[]): boolean {
   return false
 }
 const sort = (hand: Tile[]) => hand.sort((a, b) => a.type - b.type || a.id - b.id)
-export function newGame(random = Math.random): Game {
+export function newGame(random = Math.random, dealer = 0): Game {
+  if (!Number.isInteger(dealer) || dealer < 0 || dealer > 3) throw new Error('Invalid dealer')
   const wall = Array.from({ length: 136 }, (_, id) => ({ id, type: Math.floor(id / 4) }))
   for (let i = wall.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [wall[i], wall[j]] = [wall[j], wall[i]] }
   const hands = Array.from({ length: 4 }, () => sort(wall.splice(0, 13)))
-  const drawn = wall.pop()!; hands[0].push(drawn); sort(hands[0])
-  const win = isWinning(hands[0].map(t => t.type))
-  return { wall, hands, discards: [[], [], [], []], turn: 0, moves: 0, winner: win ? 0 : null, result: win ? 'win' : 'playing', drawn: drawn.id, message: win ? 'You win on the opening draw!' : 'Your turn. Choose a tile to discard.' }
+  const drawn = wall.pop()!; hands[dealer].push(drawn); sort(hands[dealer])
+  const win = isWinning(hands[dealer].map(t => t.type))
+  return { dealer, wall, hands, discards: [[], [], [], []], turn: dealer, moves: 0, winner: win ? dealer : null, result: win ? 'win' : 'playing', drawn: drawn.id, message: win ? `${players[dealer]} win${dealer ? 's' : ''} on the opening draw!` : dealer === 0 ? 'You are the dealer. Choose a tile to discard.' : `${players[dealer]} is the dealer and plays first.` }
 }
 export function discard(game: Game, seat: number, id: number): Game {
   if (game.result !== 'playing' || seat !== game.turn || !game.hands[seat].some(t => t.id === id)) return game

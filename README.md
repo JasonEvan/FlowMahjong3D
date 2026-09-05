@@ -15,6 +15,8 @@ Production checks: `npm run build` and `npm run lint`.
 
 Open `/game` (or choose **Play Mahjong** in the studio) to play against three bots using the supplied `mahjong-table.glb` and `mahjong-tiles.glb` assets. Select a tile in the 3D scene or the accessible hand bar, then press **Discard tile**. Draws and valid wins are automatic. Drag to orbit or switch to top view.
 
+Before every round, choose **Roll dice for all players** to watch each player roll two dice. The highest total selects the dealer; only the highest tied players reroll until one wins. Choose **Deal tiles** to begin. The dealer is East, receives 14 tiles, and takes the first turn; the other players receive 13. Seat winds rotate relative to the dealer while your camera seat stays fixed. Starting another round repeats dealer selection.
+
 This is a simplified 136-tile ruleset: four sets and a pair, or seven distinct pairs. Players can win on self-draw or an opponent's discard; the nearest player in turn order takes precedence on simultaneous wins. No meld calls, scoring, riichi, furiten, flowers, dead wall, or thirteen-orphans hand are implemented. The game ends on a win or wall exhaustion. **New round** reshuffles the tiles. Reloading starts a new game; games are not saved.
 
 Bots use only their own hand to favor pairs, triples, and adjacent suited tiles. `src/game/engine.ts` contains the pure rules engine; `npm test` checks winning hands, turn legality, discard claims, self-draw, and tile conservation through 100 seeded full rounds. Tests require Node 22.6 or newer with experimental type stripping.

@@ -1,6 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { isWinning, newGame, discard, botDiscard } from '../src/game/engine.ts'
+import { isWinning, newGame, discard, botDiscard, rollForDealer, seatWind } from '../src/game/engine.ts'
+
+test('all four players roll two dice and the highest total selects dealer', () => {
+  const values = [0,0, .99,.99, .5,.5, .2,.2]
+  const result = rollForDealer([0,1,2,3], () => values.shift())
+  assert.deepEqual(result.rolls.map(r => r.dice), [[1,1],[6,6],[4,4],[2,2]])
+  assert.equal(result.dealer, 1)
+  assert.deepEqual(result.candidates, [1])
+})
+test('ties preserve only the highest rollers and can repeat until resolved', () => {
+  const values = [.99,.99, 0,0, .99,.99, .5,.5]
+  const first = rollForDealer([0,1,2,3], () => values.shift())
+  assert.equal(first.dealer, null); assert.deepEqual(first.candidates, [0,2])
+  const second = rollForDealer(first.candidates, () => .5)
+  assert.equal(second.dealer, null); assert.deepEqual(second.rolls.map(r => r.seat), [0,2])
+  const reroll = [0,0,.99,.99]
+  const third = rollForDealer(second.candidates, () => reroll.shift())
+  assert.equal(third.dealer, 2)
+})
+test('every possible dealer receives the opening draw and winds rotate correctly', () => {
+  for (let dealer = 0; dealer < 4; dealer++) {
+    const game = newGame(randomSeed(42), dealer)
+    assert.equal(game.dealer, dealer); assert.equal(game.turn, dealer)
+    assert.deepEqual(game.hands.map(h => h.length), [0,1,2,3].map(seat => seat === dealer ? 14 : 13))
+    assert.ok(game.hands[dealer].some(t => t.id === game.drawn))
+    assert.equal(game.wall.length, 83)
+    assert.deepEqual([0,1,2,3].map(offset => seatWind((dealer + offset) % 4, dealer)), ['East','South','West','North'])
+    const next = discard(game, dealer, botDiscard(game.hands[dealer]))
+    if (next.result === 'playing') assert.equal(next.turn, (dealer + 1) % 4)
+  }
+})
 
 test('standard hands, honors, seven pairs, and invalid hands', () => {
   assert.equal(isWinning([0,1,2,3,4,5,9,10,11,27,27,27,31,31]), true)
@@ -44,7 +74,7 @@ test('self-draw ends round before bot discard', () => {
 test('100 seeded bot rounds terminate and preserve all 136 tiles every turn', () => {
   let wins = 0
   for (let seed = 1; seed <= 100; seed++) {
-    let game = newGame(randomSeed(seed)), turns = 0
+    let game = newGame(randomSeed(seed), seed % 4), turns = 0
     while (game.result === 'playing') {
       const before = JSON.stringify(game)
       const next = discard(game, game.turn, botDiscard(game.hands[game.turn]))

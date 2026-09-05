@@ -1,0 +1,100 @@
+.dealer-modal {
+  width: min(690px, 100%);
+}
+.dealer-rolls {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 25px 0;
+}
+.dealer-player {
+  padding: 17px 8px;
+  text-align: center;
+  border: 1px solid #78986240;
+  border-radius: 9px;
+  background: #142e2459;
+  transition:
+    background 0.3s,
+    border-color 0.3s;
+}
+.dealer-player > strong {
+  font-size: 12px;
+  font-weight: 500;
+}
+.dealer-player small {
+  font-size: 7px;
+  margin-left: 4px;
+  color: #94ac88;
+}
+.dice-pair {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin: 17px 0;
+  color: #f3eed6;
+  font-family: Arial, sans-serif;
+  perspective: 300px;
+}
+.dice-pair > span {
+  line-height: 1;
+  font-size: 40px;
+  display: inline-block;
+  filter: drop-shadow(0 4px 2px #0005);
+}
+.dealer-player > p {
+  font-size: 10px;
+  color: #a4bb96;
+  min-height: 15px;
+}
+.dealer-rolling {
+  border-color: #ceda9e;
+  background: #63814425;
+}
+.dealer-winner {
+  border-color: #c9df8f;
+  background: #97b16125;
+}
+.dealer-out {
+  opacity: 0.4;
+}
+.dice-tumbling > span {
+  animation: dice-tumble 0.23s ease-in-out infinite alternate;
+}
+.dice-tumbling > span + span {
+  animation-delay: -0.12s;
+}
+@keyframes dice-tumble {
+  from {
+    transform: translateY(-7px) rotateX(-30deg) rotateZ(-18deg);
+  }
+  to {
+    transform: translateY(3px) rotateX(25deg) rotateZ(20deg);
+  }
+}
+.dealer-announcement {
+  min-height: 50px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .dice-tumbling > span {
+    animation: none;
+  }
+}
+@media (max-width: 600px) {
+  .dealer-rolls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 18px 0;
+  }
+  .dealer-player {
+    padding: 12px 8px;
+  }
+  .dice-pair {
+    margin: 10px 0;
+  }
+  .dealer-modal {
+    padding: 23px;
+  }
+  .dealer-modal > p:not(.game-kicker) {
+    font-size: 11px;
+  }
+}
