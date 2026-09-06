@@ -20,9 +20,32 @@ export default function GameScene(props: Props) {
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.6
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#172c27'); scene.fog = new THREE.Fog('#172c27', 9, 22)
-    const camera = new THREE.PerspectiveCamera(40, 1, .05, 50)
-    const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 1.5; controls.maxDistance = 8; controls.minPolarAngle = .12; controls.maxPolarAngle = 1.35
-    const reset = (top: boolean) => { camera.position.set(0, top ? 7.5 : 5.0, top ? .01 : 4.4); controls.target.set(0, 2, 0); controls.update() }; reset(false)
+    const perspective = new THREE.PerspectiveCamera(40, 1, .05, 50)
+    const flat = new THREE.OrthographicCamera(-2, 2, 2, -2, .05, 50)
+    let camera: THREE.PerspectiveCamera | THREE.OrthographicCamera = perspective
+    let controls = new OrbitControls(camera, renderer.domElement)
+    const updateProjection = () => {
+      const aspect = container.clientWidth / Math.max(container.clientHeight, 1)
+      perspective.aspect = aspect; perspective.updateProjectionMatrix()
+      const halfHeight = 1.85 / Math.min(aspect, 1)
+      flat.left = -halfHeight * aspect; flat.right = halfHeight * aspect
+      flat.top = halfHeight; flat.bottom = -halfHeight; flat.updateProjectionMatrix()
+    }
+    const reset = (mode: number) => {
+      camera = mode === 2 ? flat : perspective
+      controls.dispose()
+      camera.up.set(0, mode === 2 ? 0 : 1, mode === 2 ? -1 : 0)
+      controls = new OrbitControls(camera, renderer.domElement)
+      controls.enableDamping = true; controls.minDistance = 1.5; controls.maxDistance = 8
+      controls.maxPolarAngle = mode === 2 ? Math.PI : 1.35
+      controls.enableRotate = mode !== 2
+      controls.enablePan = mode === 2; controls.screenSpacePanning = true
+      controls.minZoom = 1; controls.maxZoom = 4
+      controls.minPolarAngle = mode === 2 ? 0 : .12
+      camera.position.set(0, mode ? 7.5 : 5, mode === 2 ? 0 : mode ? .01 : 4.4)
+      flat.zoom = 1; updateProjection()
+      controls.target.set(0, 2, 0); camera.lookAt(controls.target); controls.update()
+    }; reset(latest.current.camera)
     const pmrem = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment(), env = pmrem.fromScene(room); scene.environment = env.texture; room.dispose(); pmrem.dispose()
     scene.add(new THREE.HemisphereLight('#fff8ec', '#637b6b', 2))
     const light = new THREE.DirectionalLight('#fff1d5', 3); light.position.set(-3, 8, 4); light.castShadow = true; light.shadow.mapSize.set(2048, 2048); Object.assign(light.shadow.camera, { left: -4, right: 4, top: 4, bottom: -4 }); light.shadow.normalBias = .02; scene.add(light)
@@ -78,15 +101,15 @@ export default function GameScene(props: Props) {
       for (const hit of raycaster.intersectObjects(pieces.children, true)) { let o: THREE.Object3D | null = hit.object; while (o && o !== pieces) { if (typeof o.userData.handId === 'number') { latest.current.onSelect(o.userData.handId); return } o = o.parent } }
     }
     renderer.domElement.addEventListener('pointerdown', pointerDown); renderer.domElement.addEventListener('pointerup', pointerUp)
-    const resize = new ResizeObserver(() => { renderer.setSize(container.clientWidth, container.clientHeight); camera.aspect = container.clientWidth / container.clientHeight; camera.updateProjectionMatrix() }); resize.observe(container)
+    const resize = new ResizeObserver(() => { renderer.setSize(container.clientWidth, container.clientHeight); updateProjection() }); resize.observe(container)
     const animate = () => {
       if (disposed) return
       const state = latest.current
-      if (state.camera !== cameraId) { cameraId = state.camera; reset(cameraId % 2 === 1) }
+      if (state.camera !== cameraId) { cameraId = state.camera; reset(cameraId); renderedGame = undefined }
       if (prototypes.size === 34 && (renderedGame !== state.game || renderedSelection !== state.selected)) {
         pieces.clear(); renderedGame = state.game; renderedSelection = state.selected
         const game = state.game
-        game.hands.forEach((hand, seat) => hand.forEach((tile, i) => addTile(tile.type, (i - (hand.length - 1) / 2) * .117, seat === 0 || game.result !== 'playing' ? 2.15 : 2.12, 1.16, seat * Math.PI / 2, seat !== 0 && game.result === 'playing', seat === 0 ? tile.id : undefined, seat === 0 && game.result === 'playing')))
+        game.hands.forEach((hand, seat) => hand.forEach((tile, i) => addTile(tile.type, (i - (hand.length - 1) / 2) * .117, seat === 0 || game.result !== 'playing' ? 2.15 : 2.12, 1.16, seat * Math.PI / 2, seat !== 0 && game.result === 'playing', seat === 0 ? tile.id : undefined, cameraId !== 2 && seat === 0 && game.result === 'playing')))
         game.melds.forEach((melds, seat) => melds.forEach((meld, group) => meld.tiles.forEach((tile, i) => addTile(tile.type, -.87 + group * .45 + i * .107, 2.075, 1.41, seat * Math.PI / 2, meld.from === null && (i === 0 || i === 3) && game.result === 'playing'))))
         game.discards.forEach((river, seat) => river.forEach((tile, i) => addTile(tile.type, (i % 6 - 2.5) * .11 - .04, 2.105 + Math.floor(i / 24) * .069, .405 + Math.floor((i % 24) / 6) * .145, seat * Math.PI / 2, false)))
         game.wall.forEach((_, i) => { const side = Math.floor(i / 22), index = i % 22; addTile(0, (Math.floor(index / 2) - 5) * .11 - .04, 2.12 + index % 2 * .069, .99, side * Math.PI / 2, true) })
@@ -95,5 +118,5 @@ export default function GameScene(props: Props) {
     }; animate()
     return () => { disposed = true; cancelAnimationFrame(frame); resize.disconnect(); controls.dispose(); renderer.domElement.removeEventListener('pointerdown', pointerDown); renderer.domElement.removeEventListener('pointerup', pointerUp); disposeObjects(resources); env.dispose(); renderer.dispose(); renderer.domElement.remove() }
   }, [])
-  return <div className="game-scene" ref={host} aria-label="3D Mahjong table. Drag to orbit and scroll to zoom."/>
+  return <div className="game-scene" ref={host} aria-label={props.camera === 2 ? '2D Mahjong table. Scroll or pinch to zoom; right-drag or use two fingers to pan.' : '3D Mahjong table. Drag to orbit and scroll to zoom.'}/>
 }

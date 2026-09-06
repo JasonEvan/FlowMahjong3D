@@ -26,7 +26,7 @@ export default function OnlineTable({ code, view, busy, connected, error, act, l
         <GameScene game={game} selected={selected} onSelect={id => { if (yourTurn && enabled) setSelected(id) }} onReady={() => setReady(true)} onError={setSceneError} camera={camera}/>
         <div className="wall-counter"><span>LIVE WALL</span><strong>{game.wall.length}</strong><small>tiles remaining</small></div>
         {[1, 2, 3].map(seat => <div key={seat} className={`seat seat-${seat} ${playing && !game.pending && game.turn === seat ? 'seat-active' : ''}`}><div><strong>{view.seats[seat].name}</strong><p>{seatWind(seat, game.dealer)} · {game.hands[seat].length} tiles</p><small>{view.seats[seat].human ? view.seats[seat].online ? 'PLAYER' : 'AWAY · BOT COVERING' : 'BOT'}</small></div></div>)}
-        <div className="table-controls"><span>Drag to orbit · Scroll to zoom</span><button onClick={() => setCamera(value => value + 1)}>{camera % 2 ? 'Player view' : 'Top view'}</button></div>
+        <div className="table-controls"><span>{camera === 2 ? 'Scroll to zoom · Right-drag to pan' : 'Drag to orbit · Scroll to zoom'}</span><button onClick={() => setCamera(c => c === 1 ? 0 : 1)}>{camera === 1 ? 'Player view' : 'Top view'}</button><button aria-pressed={camera === 2} onClick={() => setCamera(c => c === 2 ? 0 : 2)}>{camera === 2 ? '3D View' : '2D View'}</button></div>
         {(!ready || sceneError) && <div className="game-cover"><h2>{sceneError || 'Setting your table…'}</h2>{sceneError && <button onClick={() => location.reload()}>Reload</button>}</div>}
       </section>
       <section className="player-area">
