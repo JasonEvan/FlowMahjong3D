@@ -98,6 +98,51 @@ VITE_FIREBASE_USE_EMULATORS=true
 
 Run `npm run emulators` and `npm run dev` in separate terminals. Ports: 9099 (Auth), 9000 (Database). Switch emulator mode off and restore your real configuration before deploying.
 
+### How Realtime Database stores and synchronizes a game
+
+Realtime Database is a shared JSON tree. Each multiplayer room lives at `sparkRooms/<six-digit-code>`:
+
+```text
+sparkRooms/
+  482913/
+    host: "firebase-anonymous-user-id"
+    phase: "lobby" | "playing"
+    createdAt: 1760000000000
+    expiresAt: 1760086400000
+    revision: 12
+    seats/
+      0/
+        uid: "firebase-anonymous-user-id"
+        name: "Jason"
+        lastSeen: 1760000000000
+      1/
+        uid: "another-user-id"
+        name: "Maya"
+        lastSeen: 1760000000000
+    payload: "{ game, decisions, nextAt }"
+```
+
+The `seats` object records which person owns each of the four table seats. Missing seats become bots when the host starts. `payload` is a serialized game state containing the wall, hands, discards, exposed melds, whose turn it is, pending claims, result, submitted claim decisions, and the time before the next bot move. `revision` increases after committed state-changing moves so the UI can reject an action based on an old table state.
+
+Every player subscribes to their room with Firebase's `onValue` listener. Firebase pushes committed room changes to all subscribed clients, so the clients do not poll for table updates. A browser uses a Realtime Database transaction for every room creation, join, discard, claim, pass, heartbeat, and bot move. The transaction receives the newest room state, applies the Mahjong rules, and commits only if the state was not changed first. Firebase retries the transaction when another player acts at the same time.
+
+```mermaid
+sequenceDiagram
+  participant A as Player A browser
+  participant DB as Realtime Database
+  participant B as Player B browser
+
+  A->>DB: Transaction: discard tile
+  DB->>DB: Validate rules and commit latest revision
+  DB-->>A: Updated room state
+  DB-->>B: Updated room state
+  B->>DB: Transaction: Pong or Pass
+  DB-->>A: Resolved table state
+  DB-->>B: Resolved table state
+```
+
+The database contains the authoritative *shared copy* for trusted games, while each browser derives a player-facing view that rotates its own seat to the bottom of the table and hides opponents' tiles in the UI. See `src/multiplayer/database.ts` for serialization and transactions, `src/multiplayer/firebase.ts` for subscriptions, and `src/multiplayer/room.ts` for room and game transitions.
+
 ### Synchronization, privacy, and limits
 
 - Browsers apply the shared rules engine inside Realtime Database transactions. Conflicting writes retry against the latest state. Eligible humans each submit a claim or pass before resolution: **Mahjong > Pong/Kong > Chi**, then turn order for ties.
