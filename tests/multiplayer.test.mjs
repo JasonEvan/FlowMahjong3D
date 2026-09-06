@@ -115,6 +115,25 @@ test('CHI waits for PONG from another human, regardless of submission order', ()
     assert.equal(room.game.melds[3][0].kind, 'pong'); assert.equal(room.game.melds[1].length, 0)
   }
 })
+test('online Pong completing four sets and a pair ends the round for every player', () => {
+  let room = lobby()
+  room.game = newGame(seeded()); room.game.turn = 0; room.game.result = 'playing'
+  room.game.hands = [[{ id: 18, type: 4 }], [{ id: 16, type: 4 }, { id: 17, type: 4 }, { id: 124, type: 31 }, { id: 125, type: 31 }], [], []]
+  room.game.melds[1] = [
+    { kind: 'chi', from: 0, tiles: [{ id: 0, type: 0 }, { id: 4, type: 1 }, { id: 8, type: 2 }] },
+    { kind: 'chi', from: 0, tiles: [{ id: 36, type: 9 }, { id: 40, type: 10 }, { id: 44, type: 11 }] },
+    { kind: 'pong', from: 2, tiles: [{ id: 108, type: 27 }, { id: 109, type: 27 }, { id: 110, type: 27 }] },
+  ]
+  const used = new Set([...room.game.hands.flat(), ...room.game.melds[1].flatMap(m => m.tiles)].map(t => t.id))
+  room.game.wall = Array.from({ length: 136 }, (_, id) => ({ id, type: Math.floor(id / 4) })).filter(t => !used.has(t.id))
+  room = applyAction(room, 'A', { kind: 'discard', value: 18, revision: room.revision }, 100)
+  const claim = roomView(room, 'B', 100).options.find(c => c.kind === 'pong')
+  room = applyAction(room, 'B', { kind: 'claim', claim, revision: room.revision }, 1500)
+  assert.equal(room.game.result, 'win'); assert.equal(room.game.winner, 1)
+  assert.equal(roomView(room, 'B', 1500).game.winner, 0)
+  assert.equal(roomView(room, 'A', 1500).game.winner, 1)
+  assert.throws(() => applyAction(room, 'B', { kind: 'discard', value: 124, revision: room.revision }, 1600), /not available/)
+})
 test('pass allows human CHI, while a disconnected claimant is covered by a bot', () => {
   for (const disconnect of [false, true]) {
     let room = joinRoom(joinRoom(lobby(), 'C', 'Claire', 0), 'D', 'Dan', 0)

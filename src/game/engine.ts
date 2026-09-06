@@ -110,7 +110,13 @@ export function resolvePlayerClaims(game: Game, humans: Record<number, Claim | n
   const from = game.pending.seat
   const decisions: { seat: number; claim: Claim }[] = []
   for (let seat = 0; seat < 4; seat++) {
-    const claim = Object.hasOwn(humans, seat) ? humans[seat] : botClaim(game, seat)
+    let claim = Object.hasOwn(humans, seat) ? humans[seat] : botClaim(game, seat)
+    // A completed Chi/Pong hand declares Mahjong before claim priorities resolve.
+    // Check the chosen set's remainder, since different Chi choices can leave different hands.
+    if (claim && (claim.kind === 'chi' || claim.kind === 'pong') && isWinning(
+      game.hands[seat].filter(t => !claim!.tileIds.includes(t.id)).map(t => t.type),
+      game.melds[seat].length + 1,
+    )) claim = { kind: 'win', tileIds: [] }
     if (claim) decisions.push({ seat, claim })
   }
   const priority = { win: 3, kong: 2, pong: 2, chi: 1 }

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { newGame, discard, claimOptions, resolveClaims, isWinning, concealedKongs, declareConcealedKong } from '../src/game/engine.ts'
+import { newGame, discard, claimOptions, resolveClaims, resolvePlayerClaims, isWinning, concealedKongs, declareConcealedKong } from '../src/game/engine.ts'
 
 function fixture(types, turn = 3) {
   const game = newGame(() => .5)
@@ -15,6 +15,54 @@ function fixture(types, turn = 3) {
 function pending(types, from = 3) { const game = fixture(types, from); return discard(game, from, game.hands[from][0].id) }
 const option = (game, kind) => claimOptions(game, 0).find(o => o.kind === kind)
 const allIds = game => [...game.wall,...game.hands.flat(),...game.discards.flat(),...game.melds.flatMap(ms=>ms.flatMap(m=>m.tiles))].map(t=>t.id).sort((a,b)=>a-b)
+
+function exposeThreeSets(game, seat) {
+  game.melds[seat] = [[0,1,2], [9,10,11], [27,27,27]].map((types, i) => ({
+    kind: i === 2 ? 'pong' : 'chi', from: (seat + 3) % 4,
+    tiles: types.map(type => game.wall.splice(game.wall.findIndex(t => t.type === type), 1)[0]),
+  }))
+  return game
+}
+
+test('two Chi, one Pong and two pairs win when a matching discard is claimed as Pong', () => {
+  for (const seat of [0,1,2,3]) {
+    const from = (seat + 3) % 4
+    const hands = [[],[],[],[]]; hands[seat] = [4,4,31,31]; hands[from] = [4]
+    const game = exposeThreeSets(pending(hands, from), seat)
+    const before = JSON.stringify(game)
+    const pong = claimOptions(game, seat).find(c => c.kind === 'pong')
+    assert.ok(claimOptions(game, seat).some(c => c.kind === 'win'))
+    const next = resolvePlayerClaims(game, { [seat]: pong })
+    assert.equal(next.result, 'win'); assert.equal(next.winner, seat)
+    assert.equal(next.pending, null); assert.equal(next.drawn, null)
+    assert.equal(next.wall.length, game.wall.length)
+    assert.equal(isWinning(next.hands[seat].map(t => t.type), next.melds[seat].length), true)
+    assert.deepEqual(allIds(next), allIds(game))
+    assert.equal(discard(next, seat, next.hands[seat][0].id), next)
+    assert.equal(JSON.stringify(game), before)
+  }
+})
+
+test('winning Chi has Mahjong priority over another player’s Pong', () => {
+  const game = exposeThreeSets(pending([[3,5,31,31],[4,4],[],[4]]), 0)
+  const next = resolveClaims(game, option(game, 'chi'))
+  assert.equal(next.result, 'win'); assert.equal(next.winner, 0)
+  assert.equal(next.melds[1].length, 0)
+  assert.deepEqual(allIds(next), allIds(game))
+})
+
+test('Pong with an unmatched remainder still requires a discard; passing a win remains allowed', () => {
+  const game = exposeThreeSets(pending([[4,4,30,31],[],[],[4]]), 0)
+  const next = resolveClaims(game, option(game, 'pong'))
+  assert.equal(next.result, 'playing'); assert.equal(next.winner, null)
+  assert.match(next.message, /discard/)
+  const winning = exposeThreeSets(pending([[4,4,31,31],[],[],[4]]), 0)
+  const drawIndex = winning.wall.findIndex(t => t.type === 32)
+  const lastIndex = winning.wall.length - 1
+  ;[winning.wall[drawIndex], winning.wall[lastIndex]] = [winning.wall[lastIndex], winning.wall[drawIndex]]
+  const passed = resolveClaims(winning, null)
+  assert.equal(passed.result, 'playing'); assert.equal(passed.winner, null)
+})
 
 test('discard pauses before drawing; pass advances exactly once; stale actions are rejected', () => {
   const game = pending([[4,4],[],[],[4]])
