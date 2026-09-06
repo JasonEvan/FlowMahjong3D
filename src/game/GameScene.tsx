@@ -17,7 +17,7 @@ export default function GameScene(props: Props) {
     const resources: THREE.Object3D[] = []
     let renderer: THREE.WebGLRenderer
     try { renderer = new THREE.WebGLRenderer({ antialias: true }) } catch { latest.current.onError('WebGL could not start. Enable hardware acceleration and reload.'); return }
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.2
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.6
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#172c27'); scene.fog = new THREE.Fog('#172c27', 9, 22)
     const camera = new THREE.PerspectiveCamera(40, 1, .05, 50)
@@ -49,7 +49,18 @@ export default function GameScene(props: Props) {
       scene.add(tableRoot); resources.push(tableRoot)
       loaded[1].traverse(o => { const type = o.userData.typeIndex; if (Number.isInteger(type) && !prototypes.has(type)) { const tile = o.clone(true); tile.position.set(0, 0, 0); tile.rotation.set(0, 0, 0); tile.scale.set(1, 1, 1); tile.updateMatrix(); prototypes.set(type, tile) } })
       if (prototypes.size !== 34) { latest.current.onError('The tile asset must contain all 34 tile types.'); return }
-      tableRoot.traverse(o => { if (o instanceof THREE.Mesh) { o.castShadow = true; o.receiveShadow = true } })
+      tableRoot.traverse(o => {
+        if (!(o instanceof THREE.Mesh)) return
+        o.castShadow = true; o.receiveShadow = true
+        // The table asset's textured, fully rough material is its green felt.
+        // Brighten that surface independently of the exposure on white tiles.
+        const materials = Array.isArray(o.material) ? o.material : [o.material]
+        materials.forEach(material => {
+          if (material instanceof THREE.MeshStandardMaterial && material.map && material.roughness === 1 && material.metalness === 0) {
+            material.color.set('#398562')
+          }
+        })
+      })
       latest.current.onReady()
     }).catch(() => { if (!disposed) latest.current.onError('Unable to prepare the 3D assets.') })
     const addTile = (type: number, x: number, y: number, z: number, angle: number, faceDown: boolean, id?: number, standing = false) => {
