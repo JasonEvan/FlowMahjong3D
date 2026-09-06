@@ -21,7 +21,7 @@ export default function GameScene(props: Props) {
     container.appendChild(renderer.domElement)
     const scene = new THREE.Scene(); scene.background = new THREE.Color('#172c27'); scene.fog = new THREE.Fog('#172c27', 9, 22)
     const camera = new THREE.PerspectiveCamera(40, 1, .05, 50)
-    const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 3; controls.maxDistance = 8; controls.minPolarAngle = .12; controls.maxPolarAngle = 1.35
+    const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.enablePan = false; controls.minDistance = 1.5; controls.maxDistance = 8; controls.minPolarAngle = .12; controls.maxPolarAngle = 1.35
     const reset = (top: boolean) => { camera.position.set(0, top ? 7.5 : 5.0, top ? .01 : 4.4); controls.target.set(0, 2, 0); controls.update() }; reset(false)
     const pmrem = new THREE.PMREMGenerator(renderer), room = new RoomEnvironment(), env = pmrem.fromScene(room); scene.environment = env.texture; room.dispose(); pmrem.dispose()
     scene.add(new THREE.HemisphereLight('#fff8ec', '#637b6b', 2))
