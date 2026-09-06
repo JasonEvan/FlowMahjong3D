@@ -99,12 +99,18 @@ export function botClaim(game: Game, seat: number): Claim | null {
 }
 // Collect all decisions before resolving priorities. A human can pass without a timer.
 export function resolveClaims(game: Game, human: Claim | null): Game {
+  return resolvePlayerClaims(game, { 0: human })
+}
+// Every human seat must submit a claim or pass; omitted seats are bots.
+export function resolvePlayerClaims(game: Game, humans: Record<number, Claim | null>): Game {
   if (!game.pending || game.result !== 'playing') return game
-  if (human && !claimOptions(game, 0).some(o => claimKey(o) === claimKey(human))) return game
+  for (const [seat, claim] of Object.entries(humans)) {
+    if (claim && !claimOptions(game, Number(seat)).some(o => claimKey(o) === claimKey(claim))) return game
+  }
   const from = game.pending.seat
   const decisions: { seat: number; claim: Claim }[] = []
   for (let seat = 0; seat < 4; seat++) {
-    const claim = seat === 0 ? human : botClaim(game, seat)
+    const claim = Object.hasOwn(humans, seat) ? humans[seat] : botClaim(game, seat)
     if (claim) decisions.push({ seat, claim })
   }
   const priority = { win: 3, kong: 2, pong: 2, chi: 1 }
