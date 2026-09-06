@@ -46,6 +46,10 @@
   font-size: 12px;
   font-weight: 500;
 }
+.game-page .claim-actions button:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
 .claim-preview {
   display: flex;
   gap: 2px;

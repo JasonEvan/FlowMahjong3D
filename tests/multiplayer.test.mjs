@@ -157,6 +157,30 @@ test('display views rotate seats and mask wall and opponent concealed hand tiles
   game.result = 'win'; game.winner = 0
   assert.deepEqual(roomView(room, 'B', 100).game.hands[3], game.hands[0])
 })
+test('players without claims pass automatically, then human Take draws exactly once', () => {
+  let room = lobby()
+  room.game = newGame(seeded()); room.game.turn = 0; room.game.result = 'playing'
+  room.game.hands = [[{ id: 0, type: 0 }], [{ id: 124, type: 31 }], [], []]
+  room = applyAction(room, 'A', { kind: 'discard', value: 0, revision: room.revision }, 100)
+  const size = room.game.wall.length
+  assert.deepEqual(roomView(room, 'B', 100).options, [])
+  assert.throws(() => applyAction(room, 'B', { kind: 'take', revision: room.revision }, 101), /not available/)
+  assert.throws(() => applyAction(room, 'B', { kind: 'claim', claim: null, revision: room.revision }, 101), /No claim/)
+  for (const now of [1500, 10000, 20000]) {
+    room = applyAction(room, 'B', { kind: 'tick' }, now)
+    assert.equal(room.game.pending, null)
+    assert.equal(room.game.wall.length, size)
+  }
+  assert.equal(room.game.pending, null); assert.equal(room.game.awaitingDraw, true)
+  room = applyAction(room, 'B', { kind: 'tick' }, 22000)
+  assert.equal(room.game.wall.length, size)
+  assert.throws(() => applyAction(room, 'A', { kind: 'take', revision: room.revision }, 22000), /not available/)
+  const action = { kind: 'take', revision: room.revision }
+  room = applyAction(room, 'B', action, 22001)
+  assert.equal(room.game.wall.length, size - 1)
+  assert.equal(room.game.awaitingDraw, false)
+  assert.throws(() => applyAction(room, 'B', action, 22002), /changed/)
+})
 test('host departure transfers ownership; disconnected host is replaced; leaving frees lobby seat', () => {
   const left = applyAction(lobby(), 'A', { kind: 'leave' }, 10)
   assert.equal(left.host, 'B')
@@ -179,6 +203,7 @@ test('a seeded online round with one human and three bots conserves all tiles an
   for (let step = 0; step < 1500 && room.game.result === 'playing'; step++) {
     const game = room.game, revision = room.revision
     if (game.pending && claimOptions(game, 0).length) room = applyAction(room, 'A', { kind: 'claim', claim: null, revision }, now)
+    else if (!game.pending && game.turn === 0 && game.awaitingDraw) room = applyAction(room, 'A', { kind: 'take', revision }, now)
     else if (!game.pending && game.turn === 0) room = applyAction(room, 'A', { kind: 'discard', value: game.hands[0][0].id, revision }, now)
     else room = applyAction(room, 'A', { kind: 'tick' }, now)
     const all = [...room.game.wall, ...room.game.hands.flat(), ...room.game.discards.flat(), ...room.game.melds.flatMap(m => m.flatMap(set => set.tiles))]

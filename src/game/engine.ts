@@ -2,6 +2,7 @@ export type Tile = { id: number; type: number }
 export type Meld = { kind: 'chi' | 'pong' | 'kong'; tiles: Tile[]; from: number | null }
 export type Claim = { kind: 'win' | 'chi' | 'pong' | 'kong'; tileIds: number[] }
 export type Game = {
+  awaitingDraw?: boolean;
   melds: Meld[][]; pending: { seat: number; tile: Tile } | null;
   dealer: number;
   wall: Tile[]; hands: Tile[][]; discards: Tile[][]; turn: number; moves: number;
@@ -56,6 +57,7 @@ function copyGame(game: Game): Game {
   return { ...game, wall: [...game.wall], hands: game.hands.map(h => [...h]), discards: game.discards.map(h => [...h]), melds: game.melds.map(m => [...m]) }
 }
 function drawTile(game: Game, seat: number, replacement = false): Game {
+  game.awaitingDraw = false
   if (!game.wall.length) return { ...game, pending: null, result: 'draw', drawn: null, message: 'The wall is empty. This round is a draw.' }
   game.turn = seat; game.pending = null
   const tile = (replacement ? game.wall.shift() : game.wall.pop())!
@@ -67,7 +69,7 @@ function drawTile(game: Game, seat: number, replacement = false): Game {
   return game
 }
 export function discard(game: Game, seat: number, id: number): Game {
-  if (game.result !== 'playing' || game.pending || seat !== game.turn || !game.hands[seat].some(t => t.id === id)) return game
+  if (game.result !== 'playing' || game.pending || game.awaitingDraw || seat !== game.turn || !game.hands[seat].some(t => t.id === id)) return game
   const next = copyGame(game)
   const index = next.hands[seat].findIndex(t => t.id === id), tile = next.hands[seat].splice(index, 1)[0]
   next.discards[seat].push(tile); next.moves++; next.drawn = null
@@ -122,7 +124,12 @@ export function resolvePlayerClaims(game: Game, humans: Record<number, Claim | n
   const priority = { win: 3, kong: 2, pong: 2, chi: 1 }
   decisions.sort((a, b) => priority[b.claim.kind] - priority[a.claim.kind] || (a.seat - from + 4) % 4 - (b.seat - from + 4) % 4)
   const next = copyGame(game), choice = decisions[0]
-  if (!choice) return drawTile(next, (from + 1) % 4)
+  if (!choice) {
+    if (!next.wall.length) return drawTile(next, (from + 1) % 4)
+    next.pending = null; next.turn = (from + 1) % 4; next.drawn = null; next.awaitingDraw = true
+    next.message = `${players[next.turn]} must take a tile from the wall.`
+    return next
+  }
   const { seat, claim } = choice, tile = next.discards[from].pop()!
   next.pending = null; next.turn = seat; next.drawn = null
   if (claim.kind === 'win') {
@@ -151,8 +158,13 @@ export function declareConcealedKong(game: Game, seat: number, type: number): Ga
 }
 export function botTurn(game: Game): Game {
   if (game.pending || game.result !== 'playing' || game.turn === 0) return game
+  if (game.awaitingDraw) return takeTile(game, game.turn)
   const kong = concealedKongs(game, game.turn)[0]
   return kong !== undefined ? declareConcealedKong(game, game.turn, kong) : discard(game, game.turn, botDiscard(game.hands[game.turn]))
+}
+export function takeTile(game: Game, seat: number): Game {
+  if (game.result !== 'playing' || game.pending || !game.awaitingDraw || game.turn !== seat) return game
+  return drawTile(copyGame(game), seat)
 }
 // Only the bot's own hand is scored: it cannot see the wall or other hands.
 export function botDiscard(hand: Tile[]): number {

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { newGame, discard, claimOptions, resolveClaims, resolvePlayerClaims, isWinning, concealedKongs, declareConcealedKong } from '../src/game/engine.ts'
+import { newGame, discard, claimOptions, resolveClaims, resolvePlayerClaims, isWinning, concealedKongs, declareConcealedKong, takeTile } from '../src/game/engine.ts'
 
 function fixture(types, turn = 3) {
   const game = newGame(() => .5)
@@ -71,7 +71,14 @@ test('discard pauses before drawing; pass advances exactly once; stale actions a
   assert.equal(discard(game,0,game.hands[0][0].id), game)
   assert.equal(resolveClaims(game,{kind:'chi',tileIds:[]}), game)
   const next = resolveClaims(game,null)
-  assert.equal(next.turn,0); assert.equal(next.pending,null); assert.equal(next.wall.length,size-1)
+  assert.equal(next.turn,0); assert.equal(next.pending,null); assert.equal(next.wall.length,size)
+  assert.equal(next.awaitingDraw, true)
+  assert.equal(takeTile(next, 1), next)
+  assert.equal(discard(next, 0, next.hands[0][0].id), next)
+  const drawn = takeTile(next, 0)
+  assert.equal(drawn.wall.length, size-1)
+  assert.equal(takeTile(drawn, 0), drawn)
+  assert.deepEqual(allIds(drawn), allIds(next))
   assert.equal(resolveClaims(next,null), next); assert.equal(JSON.stringify(game), before)
 })
 test('Pong consumes two matching hand tiles and latest discard with no draw', () => {

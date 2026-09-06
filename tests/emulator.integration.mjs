@@ -76,6 +76,13 @@ try {
   await new Promise(resolve => setTimeout(resolve, 1200))
   await owner.call({ kind: 'action', code, action: { kind: 'tick' } })
   assert.equal((await view(owner, code)).game.pending, null)
+  const awaiting = await Promise.all(seated.map(c => view(c, code)))
+  const drawing = awaiting.findIndex(v => v.game.turn === 0)
+  assert.equal(awaiting[drawing].game.awaitingDraw, true)
+  const take = { kind: 'take', revision: awaiting[drawing].revision }
+  await seated[drawing].call({ kind: 'action', code, action: take })
+  await assert.rejects(seated[drawing].call({ kind: 'action', code, action: take }), /changed/)
+  assert.equal((await view(seated[drawing], code)).game.wall.length, awaiting[drawing].game.wall.length - 1)
   await owner.call({ kind: 'action', code, action: { kind: 'leave' } })
   assert.equal((await Promise.all(admitted.map(c => view(c, code)))).filter(v => v.host).length, 1)
   await assert.rejects(get(ref(owner.db, `sparkRooms/${code}`)), /permission/i)

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import GameScene from '../game/GameScene'
-import { claimKey, seatWind, tileLabel } from '../game/engine'
+import { seatWind, tileLabel } from '../game/engine'
+import ClaimPanel from '../game/ClaimPanel'
 import { tileFace, tileTypes } from '../assets/mahjong'
 import type { Action, RoomView } from './room'
 import '../game/game.css'
@@ -12,7 +13,7 @@ export default function OnlineTable({ code, view, busy, connected, error, act, l
   const [selected, setSelected] = useState<number | null>(null), [ready, setReady] = useState(false), [sceneError, setSceneError] = useState(''), [camera, setCamera] = useState(0), [confirmLeave, setConfirmLeave] = useState(false)
   const faces = useMemo(() => tileTypes.map(spec => { const texture = tileFace(spec); const url = (texture.image as HTMLCanvasElement).toDataURL(); texture.dispose(); return url }), [])
   const enabled = connected && !busy && ready && !sceneError, playing = game.result === 'playing'
-  const yourTurn = playing && !game.pending && game.turn === 0
+  const yourTurn = playing && !game.pending && !game.awaitingDraw && game.turn === 0
   const move = async (action: Action) => { await act(action); setSelected(null) }
   return <div className="game-page">
     <header className="game-header"><a className="game-brand" href="/"><span>東</span> mahjong / 3D</a><span>ROOM {code} · {connected ? 'ONLINE' : 'RECONNECTING…'}</span><button onClick={() => setConfirmLeave(true)}>Leave table</button></header>
@@ -30,10 +31,7 @@ export default function OnlineTable({ code, view, busy, connected, error, act, l
       </section>
       <section className="player-area">
         <div className="turn-line"><strong>{!playing ? 'Round complete' : game.pending ? 'Claim window' : yourTurn ? 'Your turn' : `${view.seats[game.turn].name}’s turn`}</strong><p aria-live="polite">{game.message}</p></div>
-        {game.pending && playing && <div className="claim-panel"><img className="claim-discard" src={faces[game.pending.tile.type]} alt={tileLabel(game.pending.tile.type)}/><div className="claim-details"><strong>{view.seats[game.pending.seat].name} discarded {tileLabel(game.pending.tile.type)}</strong><p>{view.submitted ? 'Decision sent. Waiting for the other players…' : view.options.length ? 'Choose a claim or pass. Pong / Kong outranks Chi; Mahjong outranks both.' : 'Waiting for the other players’ claims…'}</p><div className="claim-actions">
-          {!view.submitted && view.options.map(option => <button key={claimKey(option)} disabled={!enabled} onClick={() => move({ kind: 'claim', claim: option, revision: view.revision })}><strong>{option.kind === 'win' ? 'Mahjong!' : option.kind === 'chi' ? 'Chi' : option.kind === 'pong' ? 'Pong' : 'Kong'}</strong>{option.kind !== 'win' && <span className="claim-preview">{[...option.tileIds.map(id => game.hands[0].find(t => t.id === id)!.type), game.pending!.tile.type].sort((a, b) => a - b).map((type, i) => <img key={i} src={faces[type]} alt={tileLabel(type)}/>)}</span>}</button>)}
-          {!view.submitted && view.options.length > 0 && <button className="pass-claim" disabled={!enabled} onClick={() => move({ kind: 'claim', claim: null, revision: view.revision })}>Pass →</button>}
-        </div></div></div>}
+        <ClaimPanel game={game} names={view.seats.map(s => s.name)} faces={faces} options={view.options} enabled={!!enabled} submitted={view.submitted} onClaim={claim => { void move({ kind: 'claim', claim, revision: view.revision }) }} onTake={() => { void move({ kind: 'take', revision: view.revision }) }}/>
         {!!game.melds[0].length && <div className="exposed-melds">{game.melds[0].map((meld, i) => <div key={i}><span>{meld.from === null ? 'Concealed Kong' : meld.kind}</span><div>{meld.tiles.map(tile => <img key={tile.id} src={faces[tile.type]} alt={tileLabel(tile.type)}/>)}</div></div>)}</div>}
         <div className="hand" aria-label="Your Mahjong tiles">{game.hands[0].map(tile => <button key={tile.id} className={`hand-tile ${selected === tile.id ? 'tile-selected' : ''} ${game.drawn === tile.id ? 'tile-drawn' : ''}`} disabled={!enabled || !yourTurn} aria-label={`Select ${tileLabel(tile.type)}`} aria-pressed={selected === tile.id} onClick={() => setSelected(tile.id)}><img src={faces[tile.type]} alt={tileLabel(tile.type)}/></button>)}</div>
         {yourTurn && view.kongs.map(type => <button key={type} disabled={!enabled} onClick={() => move({ kind: 'kong', value: type, revision: view.revision })}>Concealed Kong · {tileLabel(type)}</button>)}

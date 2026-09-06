@@ -1,4 +1,4 @@
-import { botDiscard, claimKey, claimOptions, concealedKongs, declareConcealedKong, discard, newGame, resolvePlayerClaims, rollForDealer } from '../game/engine.ts'
+import { botDiscard, claimKey, claimOptions, concealedKongs, declareConcealedKong, discard, newGame, resolvePlayerClaims, rollForDealer, takeTile } from '../game/engine.ts'
 import type { Claim, DealerRoll, Game } from '../game/engine.ts'
 
 export const ROOM_LIFETIME = 24 * 60 * 60 * 1000
@@ -9,7 +9,7 @@ export type Room = {
   host: string; members: Record<string, Member>; createdAt: number; expiresAt: number
   revision: number; game: Game | null; opening: Opening | null; decisions: Record<number, Claim | null>; nextAt: number
 }
-export type Action = { kind: 'start' } | { kind: 'leave' } | { kind: 'tick' } | { kind: 'roll' | 'reroll' | 'deal'; revision: number } | { kind: 'discard' | 'kong'; value: number; revision: number } | { kind: 'claim'; claim: Claim | null; revision: number }
+export type Action = { kind: 'start' } | { kind: 'leave' } | { kind: 'tick' } | { kind: 'take'; revision: number } | { kind: 'roll' | 'reroll' | 'deal'; revision: number } | { kind: 'discard' | 'kong'; value: number; revision: number } | { kind: 'claim'; claim: Claim | null; revision: number }
 export type RoomView = {
   host: boolean; revision: number; expiresAt: number; game: Game | null; opening: Opening | null
   seats: { name: string; human: boolean; online: boolean }[]
@@ -58,7 +58,7 @@ function advance(room: Room, now: number, random = Math.random) {
     next = resolvePlayerClaims(game, decisions)
   } else if (!humans.some(m => m.seat === game.turn)) {
     const kong = concealedKongs(game, game.turn)[0]
-    next = kong === undefined ? discard(game, game.turn, botDiscard(game.hands[game.turn])) : declareConcealedKong(game, game.turn, kong)
+    next = game.awaitingDraw ? takeTile(game, game.turn) : kong === undefined ? discard(game, game.turn, botDiscard(game.hands[game.turn])) : declareConcealedKong(game, game.turn, kong)
   }
   if (next !== game) { room.game = next; room.decisions = {}; room.revision++; room.nextAt = now + 1100 }
 }
@@ -110,8 +110,8 @@ export function applyAction(room: Room, uid: string, action: Action, now: number
       if (action.claim && !claimOptions(game, member.seat).some(c => claimKey(c) === claimKey(action.claim!))) throw new Error('Invalid claim.')
       next.decisions[member.seat] = action.claim
       // Claim submissions share the same revision until all decisions resolve.
-    } else if (action.kind === 'discard' || action.kind === 'kong') {
-      const updated = action.kind === 'discard' ? discard(game, member.seat, action.value) : declareConcealedKong(game, member.seat, action.value)
+    } else if (action.kind === 'discard' || action.kind === 'kong' || action.kind === 'take') {
+      const updated = action.kind === 'take' ? takeTile(game, member.seat) : action.kind === 'discard' ? discard(game, member.seat, action.value) : declareConcealedKong(game, member.seat, action.value)
       if (updated === game) throw new Error('That move is not available.')
       next.game = updated; next.decisions = {}; next.revision++; next.nextAt = now + 1100
     }
