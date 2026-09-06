@@ -2,10 +2,77 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { applyAction, createRoom, joinRoom, roomView, OFFLINE_AFTER, ROOM_LIFETIME } from '../src/multiplayer/room.ts'
 import { claimOptions, newGame } from '../src/game/engine.ts'
+import { encodeRoom, decodeRoom } from '../src/multiplayer/database.ts'
 
 function seeded(seed = 12) { return () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2 ** 32 } }
 function lobby() { return joinRoom(createRoom('A', 'Alice', 0), 'B', 'Bob', 0) }
-function start(room = lobby()) { return applyAction(room, 'A', { kind: 'start' }, 100, seeded()) }
+function start(room = lobby()) {
+  const random = seeded()
+  room = applyAction(room, 'A', { kind: 'start' }, 100, random)
+  while (room.opening) {
+    for (const [uid, member] of Object.entries(room.members)) {
+      if (room.opening.candidates.includes(member.seat)) room = applyAction(room, uid, { kind: 'roll', revision: room.revision }, 100, random)
+    }
+    room = applyAction(room, 'A', { kind: room.opening.dealer === null ? 'reroll' : 'deal', revision: room.revision }, 100, random)
+  }
+  return room
+}
+
+test('opening persists shared dice, waits for humans, rejects skips and duplicate rolls', () => {
+  let room = applyAction(lobby(), 'A', { kind: 'start' }, 100, () => 0)
+  const revision = room.revision
+  assert.equal(room.game, null)
+  assert.deepEqual(room.opening.rolls.map(r => r.seat), [2, 3])
+  assert.equal(encodeRoom(room).phase, 'playing')
+  assert.deepEqual(decodeRoom(encodeRoom(room)), room)
+  assert.throws(() => joinRoom(room, 'C', 'Claire', 100), /started/)
+  assert.throws(() => applyAction(room, 'A', { kind: 'start' }, 100), /progress/)
+  assert.throws(() => applyAction(room, 'A', { kind: 'deal', revision }, 100), /every player/)
+  room = applyAction(room, 'A', { kind: 'roll', revision }, 100, () => .99)
+  assert.throws(() => applyAction(room, 'A', { kind: 'roll', revision }, 100), /again/)
+  room = applyAction(room, 'B', { kind: 'roll', revision }, 100, () => .5)
+  assert.equal(room.game, null)
+  const guest = roomView(room, 'B', 100)
+  assert.equal(guest.opening.dealer, 3)
+  assert.deepEqual(guest.opening.rolls.find(r => r.seat === 3).dice, [6, 6])
+  assert.throws(() => applyAction(room, 'B', { kind: 'deal', revision }, 100), /host/)
+  room = applyAction(room, 'A', { kind: 'deal', revision }, 100, seeded())
+  assert.equal(room.opening, null)
+  assert.equal(room.game.dealer, 0)
+  assert.equal(room.game.turn, 0)
+  assert.deepEqual(room.game.hands.map(h => h.length), [14, 13, 13, 13])
+  room.game.result = 'draw'
+  room = applyAction(room, 'A', { kind: 'start' }, 101, () => 0)
+  assert.equal(room.game, null)
+  assert.equal(room.opening.attempt, 1)
+})
+
+test('ties reroll only highest players, including repeated ties and stale requests', () => {
+  let room = applyAction(lobby(), 'A', { kind: 'start' }, 100, () => 0)
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    const revision = room.revision
+    room = applyAction(room, 'A', { kind: 'roll', revision }, 100, () => .99)
+    room = applyAction(room, 'B', { kind: 'roll', revision }, 100, () => .99)
+    assert.equal(room.opening.dealer, null)
+    assert.throws(() => applyAction(room, 'A', { kind: 'deal', revision }, 100), /Tied/)
+    room = applyAction(room, 'A', { kind: 'reroll', revision }, 100)
+    assert.deepEqual(room.opening.candidates, [0, 1])
+    assert.equal(room.opening.attempt, attempt + 1)
+    assert.throws(() => applyAction(room, 'A', { kind: 'roll', revision }, 100), /changed/)
+  }
+})
+
+test('disconnected and departed players roll through bot coverage during opening', () => {
+  for (const leave of [false, true]) {
+    let room = applyAction(lobby(), 'A', { kind: 'start' }, 100, () => 0)
+    room = applyAction(room, 'B', { kind: 'roll', revision: room.revision }, 100, () => .99)
+    room = leave ? applyAction(room, 'A', { kind: 'leave' }, 101, () => 0) : applyAction(room, 'B', { kind: 'tick' }, OFFLINE_AFTER + 100, () => 0)
+    assert.equal(room.host, 'B')
+    assert.equal(room.opening.rolls.length, 4)
+    assert.equal(room.opening.dealer, 1)
+    assert.equal(room.game, null)
+  }
+})
 
 test('four distinct seats, capacity, rejoin, expiry, and host-only start', () => {
   const room = joinRoom(joinRoom(lobby(), 'C', 'Claire', 0), 'D', 'Dan', 0)

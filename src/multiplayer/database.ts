@@ -12,12 +12,12 @@ export function encodeRoom(room: Room): StoredRoom {
     host: room.host,
     seats: Object.fromEntries(Object.entries(room.members).map(([uid, m]) => [m.seat, { uid, name: m.name, lastSeen: m.lastSeen }])),
     createdAt: room.createdAt, expiresAt: room.expiresAt, revision: room.revision,
-    phase: room.game ? 'playing' : 'lobby',
-    payload: JSON.stringify({ game: room.game, decisions: room.decisions, nextAt: room.nextAt }),
+    phase: room.game || room.opening ? 'playing' : 'lobby',
+    payload: JSON.stringify({ game: room.game, opening: room.opening ?? null, decisions: room.decisions, nextAt: room.nextAt }),
   }
 }
 export function decodeRoom(value: StoredRoom): Room {
-  return { ...JSON.parse(value.payload), host: value.host, createdAt: value.createdAt, expiresAt: value.expiresAt, revision: value.revision,
+  return { opening: null, ...JSON.parse(value.payload), host: value.host, createdAt: value.createdAt, expiresAt: value.expiresAt, revision: value.revision,
     members: Object.fromEntries(Object.entries(value.seats || {}).map(([seat, m]) => [m.uid, { seat: Number(seat), name: m.name, lastSeen: m.lastSeen }])) }
 }
 export async function mutateRoom(database: Database, code: string, change: (room: Room | null) => Room | null) {

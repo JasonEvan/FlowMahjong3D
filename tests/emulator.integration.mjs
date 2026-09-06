@@ -46,6 +46,17 @@ try {
   await assert.rejects(outsider.call({ kind: 'join', code, name: 'Too late' }), /started|permission/i)
   await assert.rejects(get(ref(outsider.db, `sparkRooms/${code}`)), /permission/i)
   const seated = [owner, ...admitted]
+  let opening = await view(owner, code)
+  assert.equal(opening.game, null)
+  while (opening.opening) {
+    const snapshots = await Promise.all(seated.map(c => view(c, code)))
+    await Promise.all(seated.map((c, i) => snapshots[i].opening.candidates.includes(0)
+      ? c.call({ kind: 'action', code, action: { kind: 'roll', revision: snapshots[i].revision } }) : Promise.resolve()))
+    opening = await view(owner, code)
+    assert.equal(opening.opening.rolls.length, opening.opening.candidates.length)
+    await owner.call({ kind: 'action', code, action: { kind: opening.opening.dealer === null ? 'reroll' : 'deal', revision: opening.revision } })
+    opening = await view(owner, code)
+  }
   const views = await Promise.all(seated.map(c => view(c, code)))
   for (const snapshot of views) {
     assert.equal(snapshot.game.hands[0].length, snapshot.game.dealer === 0 ? 14 : 13)

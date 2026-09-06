@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { enterRoom, firebaseConfigured, sendAction, watchRoom } from './firebase'
 import type { Action, RoomView } from './room'
 import OnlineTable from './OnlineTable'
+import OnlineOpening from './OnlineOpening'
 import './multiplayer.css'
 
 export default function Multiplayer({ onBack }: { onBack: () => void }) {
@@ -49,6 +50,7 @@ export default function Multiplayer({ onBack }: { onBack: () => void }) {
     finally { setBusy(false) }
   }
   const forget = () => { sessionStorage.removeItem('mahjong-room'); setCode(''); setView(null); setError(''); onBack() }
+  if (view?.opening) return <OnlineOpening code={code} view={view} busy={busy} connected={connected} error={error} act={act} leave={leave}/>
   if (view?.game) return <OnlineTable code={code} view={view} busy={busy} connected={connected} error={error} act={act} leave={leave} onBack={forget}/>
   return <div className="mode-page multiplayer-page">
     <header className="mode-header"><a className="mode-brand" href="/"><span>東</span> mahjong / 3D</a><button className="room-secondary" disabled={busy} onClick={code ? leave : onBack}>{code ? 'Leave room' : '← Game modes'}</button></header>
